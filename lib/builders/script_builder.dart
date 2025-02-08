@@ -68,8 +68,6 @@ AppPublisher=${config.publisher}
 AppPublisherURL=${config.url}
 AppSupportURL=${config.supportUrl}
 AppUpdatesURL=${config.updatesUrl}
-AppUserModelID="WaveCorporation.Taskey"
-AppUserModelToastActivatorCLSID="6D809377-6AF0-444B-8957-A3773F02200E"
 LicenseFile=${config.licenseFile}
 DefaultDirName={autopf}\\${config.name}
 PrivilegesRequired=${config.admin == AdminMode.nonAdmin ? 'lowest' : 'admin'}
@@ -164,6 +162,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
   String _icons() {
     return '''
 [Icons]
+AppUserModelID: "WaveCorporation.Taskey";
+AppUserModelToastActivatorCLSID: "6D809377-6AF0-444B-8957-A3773F02200E";
 Name: "{autoprograms}\\${config.name}"; Filename: "{app}\\${config.exeName}"
 Name: "{autodesktop}\\${config.name}"; Filename: "{app}\\${config.exeName}"; Tasks: desktopicon
 \n''';
