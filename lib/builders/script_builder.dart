@@ -68,6 +68,8 @@ AppPublisher=${config.publisher}
 AppPublisherURL=${config.url}
 AppSupportURL=${config.supportUrl}
 AppUpdatesURL=${config.updatesUrl}
+AppUserModelID="WaveCorporation.Taskey"
+AppUserModelToastActivatorCLSID="6D809377-6AF0-444B-8957-A3773F02200E"
 LicenseFile=${config.licenseFile}
 DefaultDirName={autopf}\\${config.name}
 PrivilegesRequired=${config.admin == AdminMode.nonAdmin ? 'lowest' : 'admin'}
