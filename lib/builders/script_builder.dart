@@ -162,10 +162,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
   String _icons() {
     return '''
 [Icons]
-AppUserModelID: "WaveCorporation.Taskey";
-AppUserModelToastActivatorCLSID: "6D809377-6AF0-444B-8957-A3773F02200E";
-Name: "{autoprograms}\\${config.name}"; Filename: "{app}\\${config.exeName}"
-Name: "{autodesktop}\\${config.name}"; Filename: "{app}\\${config.exeName}"; Tasks: desktopicon
+Name: "{autoprograms}\\${config.name}"; Filename: "{app}\\${config.exeName}"; AppUserModelID: "WaveCorporation.Taskey"; AppUserModelToastActivatorCLSID: "6D809377-6AF0-444B-8957-A3773F02200E";
+Name: "{autodesktop}\\${config.name}"; Filename: "{app}\\${config.exeName}"; Tasks: desktopicon; AppUserModelID: "WaveCorporation.Taskey"; AppUserModelToastActivatorCLSID: "6D809377-6AF0-444B-8957-A3773F02200E";
 \n''';
   }
 
