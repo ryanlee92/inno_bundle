@@ -182,16 +182,25 @@ String _code() {
 procedure InitializeWizard;
 begin
   WizardForm.WelcomeLabel2.Caption := WizardForm.WelcomeLabel2.Caption + #13#10 +
-    '⚠ The currently running Taskey application will be automatically closed during installation.' + #13#10 +
+    '⚠ The currently running Taskey application will be automatically closed after you click Next.' + #13#10 +
     '  Please save your work before proceeding.';
 end;
 
-procedure CurPageChanged(CurPageID: Integer);
+function NextButtonClick(CurPageID: Integer): Boolean;
 var
   ResultCode: Integer;
+  ExecResult: Boolean;
 begin
-  if CurPageID = wpSelectDir then begin
-    ShellExec('', 'taskkill.exe', '/F /IM ${config.exeName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := True; // 기본적으로 페이지 넘기기 허용
+
+  if CurPageID = wpWelcome then begin
+    Log('Next clicked on Welcome page. Attempting to terminate Taskey.exe...');
+    ExecResult := Exec('taskkill.exe', '/F /IM ${config.exeName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if not ExecResult then begin
+      Log('❌ Failed to launch taskkill.exe');
+    end else begin
+      Log('✅ taskkill.exe launched. ResultCode=' + IntToStr(ResultCode));
+    end;
   end;
 end;
 ''';
