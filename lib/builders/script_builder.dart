@@ -175,6 +175,19 @@ Filename: "{app}\\${config.exeName}"; Description: "{cm:LaunchProgram,{#StringCh
 \n''';
   }
 
+  String _kill() {
+  return '''
+[Code]
+function InitializeSetup(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  ShellExec('', 'taskkill.exe', '/F /IM ${config.exeName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := True;
+end;
+''';
+}
+
   /// Generates the ISS script file and returns its path.
   Future<File> build() async {
     CliLogger.info("Generating ISS script...");
@@ -185,7 +198,8 @@ Filename: "{app}\\${config.exeName}"; Description: "{cm:LaunchProgram,{#StringCh
         _tasks() +
         _files() +
         _icons() +
-        _run();
+        _run() + 
+        _kill();
     final relScriptPath = p.joinAll([
       ...installerBuildDir,
       config.type.dirName,
