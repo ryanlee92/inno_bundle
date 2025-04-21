@@ -61,6 +61,7 @@ class ScriptBuilder {
 [Setup]
 AppId=${config.id}
 AppName=${config.name}
+AppMutex=${config.name}
 UninstallDisplayName=${config.name}
 UninstallDisplayIcon={app}\\${config.exeName}
 AppVersion=${config.version}
