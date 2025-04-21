@@ -175,9 +175,16 @@ Filename: "{app}\\${config.exeName}"; Description: "{cm:LaunchProgram,{#StringCh
 \n''';
   }
 
-  String _kill() {
+String _code() {
   return '''
 [Code]
+procedure InitializeWizard;
+begin
+  WizardForm.WelcomeLabel2.Caption := WizardForm.WelcomeLabel2.Caption + #13#10 +
+    '⚠ The currently running Taskey application will be automatically closed during installation.' + #13#10 +
+    '  Please save your work before proceeding.';
+end;
+
 function InitializeSetup(): Boolean;
 var
   ResultCode: Integer;
@@ -199,7 +206,7 @@ end;
         _files() +
         _icons() +
         _run() + 
-        _kill();
+        _code();
     final relScriptPath = p.joinAll([
       ...installerBuildDir,
       config.type.dirName,
