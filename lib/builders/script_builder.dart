@@ -83,7 +83,7 @@ ArchitecturesAllowed=${config.arch.value}
 ArchitecturesInstallIn64BitMode=${config.arch.value}
 DisableDirPage=auto
 DisableProgramGroupPage=auto
-DefaultLanguage=english
+ShowLanguageDialog=no
 ${config.signTool != null ? config.signTool?.toInnoCode() : ""}
 \n''';
   }
