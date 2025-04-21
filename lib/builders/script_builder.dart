@@ -98,11 +98,10 @@ Type: filesandordirs; Name: "{app}\\*"
 
   /// Generates the `[Languages]` section, defining the languages supported by the installer.
   String _languages() {
-    String section = "[Languages]\n";
-    for (final language in config.languages) {
-      section += '${language.toInnoItem()}\n';
-    }
-    return '$section\n';
+    return '''
+  [Languages]
+  Name: "english"; MessagesFile: "compiler:Default.isl"
+  ''';
   }
 
   /// Generates the `[Tasks]` section, defining additional installation tasks such as creating desktop icons.
@@ -216,6 +215,7 @@ end;
         _tasks() +
         _files() +
         _icons() +
+        _languages() +
         _run() + 
         _code();
     final relScriptPath = p.joinAll([
