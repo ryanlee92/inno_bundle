@@ -78,6 +78,7 @@ SetupIconFile=$installerIcon
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+DisableWelcomePage=no
 ArchitecturesAllowed=${config.arch.value}
 ArchitecturesInstallIn64BitMode=${config.arch.value}
 DisableDirPage=auto
@@ -185,12 +186,13 @@ begin
     '  Please save your work before proceeding.';
 end;
 
-function InitializeSetup(): Boolean;
+procedure CurPageChanged(CurPageID: Integer);
 var
   ResultCode: Integer;
 begin
-  ShellExec('', 'taskkill.exe', '/F /IM ${config.exeName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Result := True;
+  if CurPageID = wpSelectDir then begin
+    ShellExec('', 'taskkill.exe', '/F /IM ${config.exeName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
 end;
 ''';
 }
