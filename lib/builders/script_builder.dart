@@ -83,6 +83,7 @@ ArchitecturesAllowed=${config.arch.value}
 ArchitecturesInstallIn64BitMode=${config.arch.value}
 DisableDirPage=auto
 DisableProgramGroupPage=auto
+DefaultLanguage=english
 ${config.signTool != null ? config.signTool?.toInnoCode() : ""}
 \n''';
   }
@@ -212,7 +213,6 @@ end;
     final script = scriptHeader +
         _setup() +
         _installDelete() +
-        _languages() +
         _tasks() +
         _files() +
         _icons() +
