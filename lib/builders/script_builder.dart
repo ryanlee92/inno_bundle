@@ -41,23 +41,22 @@ class ScriptBuilder {
   /// Generates the `[Setup]` section of the ISS script, containing metadata and
   /// configuration for the installer.
   String _setup() {
-    final outputDir = p.joinAll([
-      Directory.current.path,
-      ...installerBuildDir,
-      config.type.dirName,
+  final outputDir = p.joinAll([
+    Directory.current.path,
+    ...installerBuildDir,
+    config.type.dirName,
+  ]);
+
+  var installerIcon = config.installerIcon;
+  if (installerIcon == defaultInstallerIconPlaceholder) {
+    final installerIconDirPath = p.joinAll([
+      Directory.systemTemp.absolute.path,
+      "${camelCase(config.name)}Installer",
     ]);
+    installerIcon = persistDefaultInstallerIcon(installerIconDirPath);
+  }
 
-    var installerIcon = config.installerIcon;
-    // save default icon into temp directory to use its path.
-    if (installerIcon == defaultInstallerIconPlaceholder) {
-      final installerIconDirPath = p.joinAll([
-        Directory.systemTemp.absolute.path,
-        "${camelCase(config.name)}Installer",
-      ]);
-      installerIcon = persistDefaultInstallerIcon(installerIconDirPath);
-    }
-
-    return '''
+  return '''
 [Setup]
 AppId=${config.id}
 AppName=${config.name}
@@ -84,150 +83,72 @@ ArchitecturesInstallIn64BitMode=${config.arch.value}
 DisableDirPage=auto
 DisableProgramGroupPage=auto
 ShowLanguageDialog=no
+UseSetupLdr=no
 ${config.signTool != null ? config.signTool?.toInnoCode() : ""}
 \n''';
-  }
+}
 
-  /// Generates the `[InstallDelete]` section for specifying files to delete during uninstallation.
-  String _installDelete() {
-    return '''
-[InstallDelete]
-Type: filesandordirs; Name: "{app}\\*"
-\n''';
-  }
-
-  /// Generates the `[Languages]` section, defining the languages supported by the installer.
-  String _languages() {
-    return '''
-  [Languages]
-  Name: "english"; MessagesFile: "compiler:Default.isl"
-  ''';
-  }
-
-  /// Generates the `[Tasks]` section, defining additional installation tasks such as creating desktop icons.
-  String _tasks() {
-    return '''
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}";
-\n''';
-  }
-
-  /// Generates the `[Files]` section, specifying the files and directories to include in the installer.
-  String _files() {
-    var section = "[Files]\n";
-
-    // adding app build files
-    final files = appDir.listSync();
-    for (final file in files) {
-      final filePath = file.absolute.path;
-      if (FileSystemEntity.isDirectorySync(filePath)) {
-        final fileName = p.basename(file.path);
-        section += "Source: \"$filePath\\*\"; DestDir: \"{app}\\$fileName\"; "
-            "Flags: ignoreversion recursesubdirs createallsubdirs\n";
-      } else {
-        // override the default exe file name from the name provided by
-        // flutter build, to the inno_bundle.name property value (if provided)
-        if (p.basename(filePath) == config.exePubspecName &&
-            config.exeName != config.exePubspecName) {
-          print("Renamed ${config.exePubspecName} ${config.exeName}");
-          section += "Source: \"$filePath\"; DestDir: \"{app}\"; "
-              "DestName: \"${config.exeName}\"; Flags: ignoreversion\n";
-        } else {
-          section += "Source: \"$filePath\"; DestDir: \"{app}\"; "
-              "Flags: ignoreversion\n";
-        }
-      }
-    }
-
-    // adding optional DLL files from System32 (if they are available),
-    // so that the end user is not required to install
-    // MS Visual C++ redistributable to run the app.
-    final scriptDirPath = p.joinAll([
-      Directory.systemTemp.absolute.path,
-      "${camelCase(config.name)}Installer",
-      config.type.dirName,
-    ]);
-    Directory(scriptDirPath).createSync(recursive: true);
-    for (final fileName in vcDllFiles) {
-      final file = File(p.joinAll([...system32, fileName]));
-      if (!file.existsSync()) continue;
-      final fileNewPath = p.join(scriptDirPath, p.basename(file.path));
-      file.copySync(fileNewPath);
-      section += "Source: \"$fileNewPath\"; DestDir: \"{app}\";\n";
-    }
-
-    return '$section\n';
-  }
-
-  /// Generates the `[Icons]` section, defining the shortcuts for the installed application.
-  String _icons() {
-    return '''
-[Icons]
-Name: "{autoprograms}\\${config.name}"; Filename: "{app}\\${config.exeName}"; AppUserModelID: "WaveCorporation.Taskey"; AppUserModelToastActivatorCLSID: "6D809377-6AF0-444B-8957-A3773F02200E"; Flags: preventpinning;
-Name: "{autodesktop}\\${config.name}"; Filename: "{app}\\${config.exeName}"; Tasks: desktopicon; AppUserModelID: "WaveCorporation.Taskey"; AppUserModelToastActivatorCLSID: "6D809377-6AF0-444B-8957-A3773F02200E"; Flags: preventpinning;
-\n''';
-  }
-
-  /// Generates the `[Run]` section, specifying actions to perform after the installation is complete.
-  String _run() {
-    return '''
+String _run() {
+  return '''
 [Run]
-Filename: "{app}\\${config.exeName}"; Description: "{cm:LaunchProgram,{#StringChange('${config.name}', '&', '&&')}}"; Flags: nowait postinstall skipifsilent;
+Filename: "{app}\\restart_helper.cmd"; Flags: nowait postinstall skipifsilent;
 \n''';
-  }
+}
 
 String _code() {
   return '''
 [Code]
-procedure InitializeWizard;
-begin
-  WizardForm.WelcomeLabel2.Caption := WizardForm.WelcomeLabel2.Caption + #13#10 +
-    '⚠ The currently running Taskey application will be automatically closed after you click Next.' + #13#10 +
-    '  Please save your work before proceeding.';
-end;
-
-function NextButtonClick(CurPageID: Integer): Boolean;
+procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
   ExecResult: Boolean;
 begin
-  Result := True; // 기본적으로 페이지 넘기기 허용
-
-  if CurPageID = wpWelcome then begin
-    Log('Next clicked on Welcome page. Attempting to terminate Taskey.exe...');
+  if CurStep = ssInstall then begin
+    Log('🔧 Killing running ${config.exeName} during installation...');
     ExecResult := Exec('taskkill.exe', '/F /IM ${config.exeName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    if not ExecResult then begin
-      Log('❌ Failed to launch taskkill.exe');
-    end else begin
-      Log('✅ taskkill.exe launched. ResultCode=' + IntToStr(ResultCode));
-    end;
+    if not ExecResult then
+      Log('❌ Failed to kill process')
+    else
+      Log('✅ Process killed, sleeping for 1 second...');
+    // Sleep 1000 ms to allow Windows to release file handles
+    Sleep(1000);
   end;
 end;
 ''';
 }
 
-  /// Generates the ISS script file and returns its path.
-  Future<File> build() async {
-    CliLogger.info("Generating ISS script...");
-    final script = scriptHeader +
-        _setup() +
-        _installDelete() +
-        _tasks() +
-        _files() +
-        _icons() +
-        _languages() +
-        _run() + 
-        _code();
-    final relScriptPath = p.joinAll([
-      ...installerBuildDir,
-      config.type.dirName,
-      "inno-script.iss",
-    ]);
-    final absScriptPath = p.join(Directory.current.path, relScriptPath);
-    final scriptFile = File(absScriptPath);
-    scriptFile.createSync(recursive: true);
-    scriptFile.writeAsStringSync(script);
-    CliLogger.success("Script generated $relScriptPath");
-    return scriptFile;
-  }
+Future<File> build() async {
+  CliLogger.info("Generating ISS script...");
+  final script = scriptHeader +
+      _setup() +
+      _installDelete() +
+      _tasks() +
+      _files() +
+      _icons() +
+      _languages() +
+      _run() +
+      _code();
+  final relScriptPath = p.joinAll([
+    ...installerBuildDir,
+    config.type.dirName,
+    "inno-script.iss",
+  ]);
+  final absScriptPath = p.join(Directory.current.path, relScriptPath);
+  final scriptFile = File(absScriptPath);
+  scriptFile.createSync(recursive: true);
+  scriptFile.writeAsStringSync(script);
+
+  // 추가: restart_helper.cmd 생성
+  final restartHelperPath = p.join(appDir.path, "restart_helper.cmd");
+  final restartHelper = File(restartHelperPath);
+  restartHelper.writeAsStringSync('''
+@echo off
+timeout /t 2 > nul
+start "" "%~dp0${config.exeName}"
+exit
+''');
+
+  CliLogger.success("Script generated $relScriptPath");
+  return scriptFile;
+}
 }
