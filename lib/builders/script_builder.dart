@@ -55,7 +55,6 @@ ArchitecturesInstallIn64BitMode=${config.arch.value}
 DisableDirPage=auto
 DisableProgramGroupPage=auto
 ShowLanguageDialog=no
-UseSetupLdr=no
 ${config.signTool != null ? config.signTool?.toInnoCode() : ""}
 \n''';
   }
