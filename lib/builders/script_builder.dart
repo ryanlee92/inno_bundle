@@ -55,6 +55,7 @@ ArchitecturesInstallIn64BitMode=${config.arch.value}
 DisableDirPage=auto
 DisableProgramGroupPage=auto
 ShowLanguageDialog=no
+CloseApplications=no
 ${config.signTool != null ? config.signTool?.toInnoCode() : ""}
 \n''';
   }
@@ -127,7 +128,7 @@ Name: "{autodesktop}\\${config.name}"; Filename: "{app}\\${config.exeName}"; Tas
   String _run() {
     return '''
 [Run]
-Filename: "{app}\\restart_helper.cmd"; Flags: nowait postinstall skipifsilent;
+Filename: "{app}\\${config.exeName}"; Description: "{cm:LaunchProgram,{#StringChange('${config.name}', '&', '&&')}}"; Flags: nowait postinstall skipifsilent;
 \n''';
   }
 
@@ -173,16 +174,6 @@ end;
     final scriptFile = File(absScriptPath);
     scriptFile.createSync(recursive: true);
     scriptFile.writeAsStringSync(script);
-
-    // 🧹 restart_helper.cmd 생성 (앱 종료 후 2초 대기, 재시작)
-    final restartHelperPath = p.join(appDir.path, "restart_helper.cmd");
-    final restartHelper = File(restartHelperPath);
-    restartHelper.writeAsStringSync('''
-@echo off
-timeout /t 2 > nul
-start "" "%~dp0${config.exeName}"
-exit
-''');
 
     CliLogger.success("Script generated $relScriptPath");
     return scriptFile;
