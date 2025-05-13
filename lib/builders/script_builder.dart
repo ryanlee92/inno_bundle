@@ -78,6 +78,14 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
     return '''
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}";
+Name: "startup"; Description: "Run ${config.name} when Windows starts"; GroupDescription: "Additional Options:"
+
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
+  ValueType: string; ValueName: "${config.name}"; \
+  ValueData: """{app}\\${config.exeName}"""; \
+  Flags: uninsdeletevalue; Tasks: startup
+  
 \n''';
   }
 
