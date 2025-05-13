@@ -82,10 +82,7 @@ Name: "startup"; Description: "Run ${config.name} when Windows starts"; GroupDes
 
 
 [Registry]
-Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; \
-  ValueType: string; ValueName: "${config.name}"; \
-  ValueData: """{app}\\${config.exeName}"""; \
-  Flags: uninsdeletevalue; Tasks: startup
+Root: "HKCU"; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "${config.name}"; ValueData: """{app}\\${config.exeName}"""; Flags: uninsdeletevalue; Tasks: startup
   
 \n''';
   }
