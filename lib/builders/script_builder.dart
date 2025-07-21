@@ -197,7 +197,19 @@ end;
 // --- VCRedistNeedsInstall_... 함수들은 모두 삭제 ---
 
 procedure CurStepChanged(CurStep: TSetupStep);
-// ... (기존 CurStepChanged 코드는 그대로 둡니다) ...
+var
+  ResultCode: Integer;
+  ExecResult: Boolean;
+begin
+  if CurStep = ssInstall then begin
+    Log('🔧 Killing running ${config.exeName} during installation...');
+    ExecResult := Exec('taskkill.exe', '/F /IM ${config.exeName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if not ExecResult then
+      Log('❌ Failed to kill process')
+    else
+      Log('✅ Process killed, sleeping for 1 second...');
+    Sleep(1000);
+  end;
 end;
 ''';
 }
