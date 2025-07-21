@@ -159,12 +159,10 @@ Filename: "{app}\\${config.exeName}"; Description: "{cm:LaunchProgram,{#StringCh
 \n''';
   }
 
- String _code() {
+String _code() {
   return '''
 [Code]
-// --- 이 아래의 모든 코드를 복사하여 붙여넣으세요 ---
-
-// 특정 아키텍처의 VC++ 런타임이 설치되었는지 확인하는 헬퍼 함수
+// 특정 아키텍처의 VC++ 런타임이 설치되었는지 확인하는 최종 버전 헬퍼 함수
 function IsVCRedistInstalled(const Arch: String): Boolean;
 var
   Success: Boolean;
@@ -172,22 +170,33 @@ var
   Key: String;
   Is64Bit: Boolean;
 begin
+  // Key 변수를 빈 문자열로 초기화
+  Key := '';
   Is64Bit := IsWin64;
   
-  // 아키텍처에 맞는 레지스트리 키 경로 설정
-  // 경로 구분자를 이중 백슬래시(\\)로 변경하여 이스케이프 문제를 원천 차단
+  // --- 복합 논리를 단순 if문으로 모두 분리 ---
   if Arch = 'x64' then
-    Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64'
-  else if Arch = 'x86' and Is64Bit then
-    Key := 'SOFTWARE\\WOW6432Node\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x86'
-  else if Arch = 'x86' and not Is64Bit then
-    Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x86'
-  else if Arch = 'arm64' then
-    Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\arm64'
-  else begin
-    // 알 수 없는 아키텍처는 이미 설치된 것으로 간주하여 건너뜀
-    Result := True;
-    exit;
+    Key := 'SOFTWARE/Microsoft/VisualStudio/14.0/VC/Runtimes/x64';
+
+  if Arch = 'arm64' then
+    Key := 'SOFTWARE/Microsoft/VisualStudio/14.0/VC/Runtimes/arm64';
+  
+  if Arch = 'x86' then
+  begin
+    // 'and'를 사용하는 대신 중첩 if 문으로 분리
+    if Is64Bit then
+      Key := 'SOFTWARE/WOW6432Node/Microsoft/VisualStudio/14.0/VC/Runtimes/x86'
+    else
+      Key := 'SOFTWARE/Microsoft/VisualStudio/14.0/VC/Runtimes/x86';
+  end;
+  // --- 여기까지가 핵심 수정 ---
+
+  // 만약 지원하는 아키텍처가 아니어서 Key가 비어있다면,
+  // 안전하게 '설치됨'으로 간주하여 건너뜀
+  if Key = '' then 
+  begin
+     Result := True;
+     exit;
   end;
   
   // 레지스트리 쿼리 결과를 별도의 Boolean 변수에 먼저 저장
