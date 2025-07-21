@@ -159,95 +159,63 @@ Filename: "{app}\\${config.exeName}"; Description: "{cm:LaunchProgram,{#StringCh
 \n''';
   }
 
-  String _code() {
+ String _code() {
   return '''
 [Code]
-// Windows API 함수 및 상수 정의
-const
-  PROCESSOR_ARCHITECTURE_AMD64 = 9;
-  PROCESSOR_ARCHITECTURE_ARM = 5;
-  PROCESSOR_ARCHITECTURE_ARM64 = 12;
-  PROCESSOR_ARCHITECTURE_INTEL = 0;
-
-type
-  SYSTEM_INFO = record
-    wProcessorArchitecture: Word;
-    wReserved: Word;
-    dwPageSize: DWord;
-    lpMinimumApplicationAddress: LongInt;
-    lpMaximumApplicationAddress: LongInt;
-    dwActiveProcessorMask: DWord;
-    dwNumberOfProcessors: DWord;
-    dwProcessorType: DWord;
-    dwAllocationGranularity: DWord;
-    wProcessorLevel: Word;
-    wProcessorRevision: Word;
-  end;
-
-procedure GetNativeSystemInfo(var lpSystemInfo: SYSTEM_INFO);
-  external 'GetNativeSystemInfo@kernel32.dll stdcall';
-
-// 현재 PC의 아키텍처를 문자열로 반환하는 헬퍼 함수
-function GetArch: String;
-var
-  SystemInfo: SYSTEM_INFO;
-begin
-  GetNativeSystemInfo(SystemInfo);
-  case SystemInfo.wProcessorArchitecture of
-    PROCESSOR_ARCHITECTURE_AMD64: Result := 'x64';
-    PROCESSOR_ARCHITECTURE_ARM64: Result := 'arm64';
-    PROCESSOR_ARCHITECTURE_INTEL: Result := 'x86';
-    else Result := 'unknown';
-  end;
-end;
+// --- 이 아래의 모든 코드를 복사하여 붙여넣으세요 ---
 
 // 특정 아키텍처의 VC++ 런타임이 설치되었는지 확인하는 헬퍼 함수
 function IsVCRedistInstalled(const Arch: String): Boolean;
 var
+  Success: Boolean;
   Version: String;
   Key: String;
   Is64Bit: Boolean;
 begin
   Is64Bit := IsWin64;
   
-  // --- 이 부분을 수정합니다 ---
+  // 아키텍처에 맞는 레지스트리 키 경로 설정
+  // 경로 구분자를 이중 백슬래시(\\)로 변경하여 이스케이프 문제를 원천 차단
   if Arch = 'x64' then
-    Key := 'SOFTWARE/Microsoft/VisualStudio/14.0/VC/Runtimes/x64'
+    Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64'
   else if Arch = 'x86' and Is64Bit then
-    Key := 'SOFTWARE/WOW6432Node/Microsoft/VisualStudio/14.0/VC/Runtimes/x86'
+    Key := 'SOFTWARE\\WOW6432Node\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x86'
   else if Arch = 'x86' and not Is64Bit then
-    Key := 'SOFTWARE/Microsoft/VisualStudio/14.0/VC/Runtimes/x86'
+    Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x86'
   else if Arch = 'arm64' then
-    Key := 'SOFTWARE/Microsoft/VisualStudio/14.0/VC/Runtimes/arm64'
-  // --- 여기까지 수정 ---
+    Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\arm64'
   else begin
+    // 알 수 없는 아키텍처는 이미 설치된 것으로 간주하여 건너뜀
     Result := True;
     exit;
   end;
   
+  // 레지스트리 쿼리 결과를 별도의 Boolean 변수에 먼저 저장
   if Arch = 'x64' then
-    Result := RegQueryStringValue(HKLM64, Key, 'Version', Version)
+    Success := RegQueryStringValue(HKLM64, Key, 'Version', Version)
   else
-    Result := RegQueryStringValue(HKLM, Key, 'Version', Version);
+    Success := RegQueryStringValue(HKLM, Key, 'Version', Version);
+
+  // 최종 결과를 명시적으로 반환
+  Result := Success;
 end;
 
 // x64용 최종 체크 함수
 function VCRedistNeedsInstall_x64: Boolean;
 begin
-  Result := (GetArch = 'x64') and (not IsVCRedistInstalled('x64'));
+  Result := (GetProcessorArchitecture = 'x64') and (not IsVCRedistInstalled('x64'));
 end;
 
 // x86용 최종 체크 함수
 function VCRedistNeedsInstall_x86: Boolean;
 begin
-  // x64 윈도우에서도 x86 런타임이 필요할 수 있음
-  Result := ((GetArch = 'x86') or (GetArch = 'x64')) and (not IsVCRedistInstalled('x86'));
+  Result := ((GetProcessorArchitecture = 'x86') or (GetProcessorArchitecture = 'x64')) and (not IsVCRedistInstalled('x86'));
 end;
 
 // arm64용 최종 체크 함수
 function VCRedistNeedsInstall_arm64: Boolean;
 begin
-  Result := (GetArch = 'arm64') and (not IsVCRedistInstalled('arm64'));
+  Result := (GetProcessorArchitecture = 'arm64') and (not IsVCRedistInstalled('arm64'));
 end;
 
 // 기존 CurStepChanged 프로시저 (그대로 둡니다)
