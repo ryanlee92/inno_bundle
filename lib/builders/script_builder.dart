@@ -152,9 +152,9 @@ Name: "{autodesktop}\\${config.name}"; Filename: "{app}\\${config.exeName}"; Tas
   String _run() {
     return '''
 [Run]
-Filename: "{tmp}\\VC_redist.x64.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (x64)..."; Check: not IsVCRedistInstalled('x64'); Architectures: x64
-Filename: "{tmp}\\VC_redist.x86.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (x86)..."; Check: not IsVCRedistInstalled('x86'); Architectures: x64 x86
-Filename: "{tmp}\\VC_redist.arm64.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (arm64)..."; Check: not IsVCRedistInstalled('arm64'); Architectures: arm64
+Filename: "{tmp}\\VC_redist.x64.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (x64)..."; Check: VCRedistNeedsInstall_x64
+Filename: "{tmp}\\VC_redist.x86.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (x86)..."; Check: VCRedistNeedsInstall_x86
+Filename: "{tmp}\\VC_redist.arm64.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (arm64)..."; Check: VCRedistNeedsInstall_arm64
 Filename: "{app}\\${config.exeName}"; Description: "{cm:LaunchProgram,{#StringChange('${config.name}', '&', '&&')}}"; Flags: nowait postinstall skipifsilent shellexec runascurrentuser
 \n''';
   }
@@ -162,23 +162,59 @@ Filename: "{app}\\${config.exeName}"; Description: "{cm:LaunchProgram,{#StringCh
   String _code() {
   return '''
 [Code]
-// 공통 헬퍼 함수: 특정 아키텍처의 VC++ 런타임이 설치되었는지 확인
+// Windows API 함수 및 상수 정의
+const
+  PROCESSOR_ARCHITECTURE_AMD64 = 9;
+  PROCESSOR_ARCHITECTURE_ARM = 5;
+  PROCESSOR_ARCHITECTURE_ARM64 = 12;
+  PROCESSOR_ARCHITECTURE_INTEL = 0;
+
+type
+  SYSTEM_INFO = record
+    wProcessorArchitecture: Word;
+    wReserved: Word;
+    dwPageSize: DWord;
+    lpMinimumApplicationAddress: LongInt;
+    lpMaximumApplicationAddress: LongInt;
+    dwActiveProcessorMask: DWord;
+    dwNumberOfProcessors: DWord;
+    dwProcessorType: DWord;
+    dwAllocationGranularity: DWord;
+    wProcessorLevel: Word;
+    wProcessorRevision: Word;
+  end;
+
+procedure GetNativeSystemInfo(var lpSystemInfo: SYSTEM_INFO);
+  external 'GetNativeSystemInfo@kernel32.dll stdcall';
+
+// 현재 PC의 아키텍처를 문자열로 반환하는 헬퍼 함수
+function GetArch: String;
+var
+  SystemInfo: SYSTEM_INFO;
+begin
+  GetNativeSystemInfo(SystemInfo);
+  case SystemInfo.wProcessorArchitecture of
+    PROCESSOR_ARCHITECTURE_AMD64: Result := 'x64';
+    PROCESSOR_ARCHITECTURE_ARM64: Result := 'arm64';
+    PROCESSOR_ARCHITECTURE_INTEL: Result := 'x86';
+    else Result := 'unknown';
+  end;
+end;
+
+// 특정 아키텍처의 VC++ 런타임이 설치되었는지 확인하는 헬퍼 함수
 function IsVCRedistInstalled(const Arch: String): Boolean;
 var
   Version: String;
   Key: String;
-  Wow64: Boolean;
+  Is64Bit: Boolean;
 begin
-  // 32비트 OS인지 64비트 OS인지 확인
-  Wow64 := IsWin64;
-
+  Is64Bit := IsWin64;
+  
   if Arch = 'x64' then
     Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64'
-  // 64비트 윈도우의 32비트 프로그램 레지스트리 경로
-  else if Arch = 'x86' and Wow64 then
+  else if Arch = 'x86' and Is64Bit then
     Key := 'SOFTWARE\\WOW6432Node\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x86'
-  // 32비트 윈도우의 32비트 프로그램 레지스트리 경로
-  else if Arch = 'x86' and not Wow64 then
+  else if Arch = 'x86' and not Is64Bit then
     Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x86'
   else if Arch = 'arm64' then
     Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\arm64'
@@ -186,16 +222,33 @@ begin
     Result := True;
     exit;
   end;
-
-  // 64비트 키는 HKLM64에서 찾아야 함
+  
   if Arch = 'x64' then
     Result := RegQueryStringValue(HKLM64, Key, 'Version', Version)
   else
     Result := RegQueryStringValue(HKLM, Key, 'Version', Version);
 end;
 
-// --- VCRedistNeedsInstall_... 함수들은 모두 삭제 ---
+// x64용 최종 체크 함수
+function VCRedistNeedsInstall_x64: Boolean;
+begin
+  Result := (GetArch = 'x64') and (not IsVCRedistInstalled('x64'));
+end;
 
+// x86용 최종 체크 함수
+function VCRedistNeedsInstall_x86: Boolean;
+begin
+  // x64 윈도우에서도 x86 런타임이 필요할 수 있음
+  Result := ((GetArch = 'x86') or (GetArch = 'x64')) and (not IsVCRedistInstalled('x86'));
+end;
+
+// arm64용 최종 체크 함수
+function VCRedistNeedsInstall_arm64: Boolean;
+begin
+  Result := (GetArch = 'arm64') and (not IsVCRedistInstalled('arm64'));
+end;
+
+// 기존 CurStepChanged 프로시저 (그대로 둡니다)
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
