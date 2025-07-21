@@ -174,8 +174,9 @@ type
     wProcessorArchitecture: Word;
     wReserved: Word;
     dwPageSize: DWord;
-    lpMinimumApplicationAddress: Pointer;
-    lpMaximumApplicationAddress: Pointer;
+    // Pointer 타입을 LongInt로 수정하여 구버전 호환성 확보
+    lpMinimumApplicationAddress: LongInt;
+    lpMaximumApplicationAddress: LongInt;
     dwActiveProcessorMask: DWord;
     dwNumberOfProcessors: DWord;
     dwProcessorType: DWord;
@@ -214,7 +215,6 @@ begin
   Key := '';
   Is64Bit := IsWin64;
   
-  // 컴파일러 오류를 피하기 위해 단순 if문으로 분리
   if Arch = 'x64' then
     Key := 'SOFTWARE/Microsoft/VisualStudio/14.0/VC/Runtimes/x64';
   
@@ -246,7 +246,6 @@ end;
 // 각 아키텍처별 최종 체크 함수
 function VCRedistNeedsInstall_x64: Boolean;
 begin
-  // 직접 만든 GetArch 함수를 사용
   Result := (GetArch = 'x64') and (not IsVCRedistInstalled('x64'));
 end;
 
