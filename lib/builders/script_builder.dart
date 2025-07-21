@@ -210,14 +210,16 @@ var
 begin
   Is64Bit := IsWin64;
   
+  // --- 이 부분을 수정합니다 ---
   if Arch = 'x64' then
-    Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64'
+    Key := 'SOFTWARE/Microsoft/VisualStudio/14.0/VC/Runtimes/x64'
   else if Arch = 'x86' and Is64Bit then
-    Key := 'SOFTWARE\\WOW6432Node\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x86'
+    Key := 'SOFTWARE/WOW6432Node/Microsoft/VisualStudio/14.0/VC/Runtimes/x86'
   else if Arch = 'x86' and not Is64Bit then
-    Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x86'
+    Key := 'SOFTWARE/Microsoft/VisualStudio/14.0/VC/Runtimes/x86'
   else if Arch = 'arm64' then
-    Key := 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\arm64'
+    Key := 'SOFTWARE/Microsoft/VisualStudio/14.0/VC/Runtimes/arm64'
+  // --- 여기까지 수정 ---
   else begin
     Result := True;
     exit;
