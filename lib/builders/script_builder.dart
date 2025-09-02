@@ -54,6 +54,7 @@ ArchitecturesAllowed=${config.arch.value}
 ArchitecturesInstallIn64BitMode=${config.arch.value}
 DisableDirPage=auto
 DisableProgramGroupPage=auto
+ChangesAssociations=yes
 ShowLanguageDialog=no
 CloseApplications=no
 ${config.signTool != null ? config.signTool?.toInnoCode() : ""}
