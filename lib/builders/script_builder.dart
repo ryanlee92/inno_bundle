@@ -83,7 +83,17 @@ Name: "startup"; Description: "Run ${config.name} when Windows starts"; GroupDes
 
 [Registry]
 Root: "HKCU"; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "${config.name}"; ValueData: """{app}\\${config.exeName}"""; Flags: uninsdeletevalue; Tasks: startup
-  
+
+Root: "HKCU"; Subkey: "Software\\Classes\\com.wavetogether.fillin"; ValueType: string; ValueName: ""; ValueData: "URL:${config.name} Protocol"; Flags: uninsdeletekey; Tasks: protocol
+Root: "HKCU"; Subkey: "Software\\Classes\\com.wavetogether.fillin"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""; Tasks: protocol
+Root: "HKCU"; Subkey: "Software\\Classes\\com.wavetogether.fillin\\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\\${config.exeName}"",0"; Tasks: protocol
+Root: "HKCU"; Subkey: "Software\\Classes\\com.wavetogether.fillin\\shell\\open\\command"; ValueType: string; ValueName: ""; ValueData: """{app}\\${config.exeName}"" ""%1"""; Tasks: protocol
+
+Root: "HKCU"; Subkey: "Software\\Classes\\com.wavetogether.fillin.slack"; ValueType: string; ValueName: ""; ValueData: "URL:${config.name} Protocol"; Flags: uninsdeletekey; Tasks: protocol
+Root: "HKCU"; Subkey: "Software\\Classes\\com.wavetogether.fillin.slack"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""; Tasks: protocol
+Root: "HKCU"; Subkey: "Software\\Classes\\com.wavetogether.fillin.slack\\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\\${config.exeName}"",0"; Tasks: protocol
+Root: "HKCU"; Subkey: "Software\\Classes\\com.wavetogether.fillin.slack\\shell\\open\\command"; ValueType: string; ValueName: ""; ValueData: """{app}\\${config.exeName}"" ""%1"""; Tasks: protocol
+    
 \n''';
   }
 
