@@ -54,10 +54,22 @@ ${config.signTool != null ? config.signTool?.toInnoCode() : ""}
   }
 
   String _installDelete() {
-    return '''
+    final oldExeName = 'Taskey.exe';
+    final newExeName = config.exeName;
+
+    // 앱 이름이 변경된 경우 이전 실행 파일도 삭제
+    if (oldExeName.toLowerCase() != newExeName.toLowerCase()) {
+      return '''
+[InstallDelete]
+Type: filesandordirs; Name: "{app}\\*"
+Type: files; Name: "{app}\\$oldExeName"
+\n''';
+    } else {
+      return '''
 [InstallDelete]
 Type: filesandordirs; Name: "{app}\\*"
 \n''';
+    }
   }
 
   String _languages() {
@@ -92,9 +104,23 @@ Root: "HKCU"; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; Value
         final fileName = p.basename(file.path);
         section += "Source: \"$filePath\\*\"; DestDir: \"{app}\\$fileName\"; Flags: ignoreversion recursesubdirs createallsubdirs\n";
       } else {
-        if (p.basename(filePath) == config.exePubspecName && config.exeName != config.exePubspecName) {
-          print("Renamed ${config.exePubspecName} ${config.exeName}");
-          section += "Source: \"$filePath\"; DestDir: \"{app}\"; DestName: \"${config.exeName}\"; Flags: ignoreversion\n";
+        final fileName = p.basename(filePath);
+        final lowerFileName = fileName.toLowerCase();
+
+        // 실행 파일 이름 변경 처리
+        // 1. exePubspecName과 exeName이 다른 경우 (일반적인 경우)
+        // 2. 이전 앱 이름(Taskey)을 포함하는 실행 파일인 경우
+        if (lowerFileName.endsWith('.exe')) {
+          if (fileName == config.exePubspecName && config.exeName != config.exePubspecName) {
+            print("Renamed ${config.exePubspecName} to ${config.exeName}");
+            section += "Source: \"$filePath\"; DestDir: \"{app}\"; DestName: \"${config.exeName}\"; Flags: ignoreversion\n";
+          } else if (lowerFileName.contains('taskey') && !lowerFileName.contains(config.name.toLowerCase())) {
+            // 이전 앱 이름을 포함하는 실행 파일을 새 이름으로 변경
+            print("Renamed $fileName to ${config.exeName} (migration from Taskey)");
+            section += "Source: \"$filePath\"; DestDir: \"{app}\"; DestName: \"${config.exeName}\"; Flags: ignoreversion\n";
+          } else {
+            section += "Source: \"$filePath\"; DestDir: \"{app}\"; Flags: ignoreversion\n";
+          }
         } else {
           section += "Source: \"$filePath\"; DestDir: \"{app}\"; Flags: ignoreversion\n";
         }
