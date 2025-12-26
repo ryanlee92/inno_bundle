@@ -13,18 +13,11 @@ class ScriptBuilder {
   ScriptBuilder(this.config, this.appDir);
 
   String _setup() {
-    final outputDir = p.joinAll([
-      Directory.current.path,
-      ...installerBuildDir,
-      config.type.dirName,
-    ]);
+    final outputDir = p.joinAll([Directory.current.path, ...installerBuildDir, config.type.dirName]);
 
     var installerIcon = config.installerIcon;
     if (installerIcon == defaultInstallerIconPlaceholder) {
-      final installerIconDirPath = p.joinAll([
-        Directory.systemTemp.absolute.path,
-        "${camelCase(config.name)}Installer",
-      ]);
+      final installerIconDirPath = p.joinAll([Directory.systemTemp.absolute.path, "${camelCase(config.name)}Installer"]);
       installerIcon = persistDefaultInstallerIcon(installerIconDirPath);
     }
 
@@ -106,20 +99,12 @@ Root: "HKCU"; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; Value
       }
     }
 
-    final scriptDirPath = p.joinAll([
-      Directory.systemTemp.absolute.path,
-      "${camelCase(config.name)}Installer",
-      config.type.dirName,
-    ]);
+    final scriptDirPath = p.joinAll([Directory.systemTemp.absolute.path, "${camelCase(config.name)}Installer", config.type.dirName]);
     Directory(scriptDirPath).createSync(recursive: true);
 
     // --- 이 부분을 수정합니다 ---
-    final vcRedistFiles = [
-      'VC_redist.x64.exe',
-      'VC_redist.x86.exe',
-      'VC_redist.arm64.exe',
-    ];
-    
+    final vcRedistFiles = ['VC_redist.x64.exe', 'VC_redist.x86.exe', 'VC_redist.arm64.exe'];
+
     for (final fileName in vcRedistFiles) {
       final filePath = p.join(Directory.current.path, 'dependencies', fileName);
       if (File(filePath).existsSync()) {
@@ -129,7 +114,7 @@ Root: "HKCU"; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; Value
       }
     }
     // --- 여기까지 수정 ---
-    
+
     for (final fileName in vcDllFiles) {
       final file = File(p.joinAll([...system32, fileName]));
       if (!file.existsSync()) continue;
@@ -159,8 +144,8 @@ Filename: "{app}\\${config.exeName}"; Description: "{cm:LaunchProgram,{#StringCh
 \n''';
   }
 
-String _code() {
-  return '''
+  String _code() {
+    return '''
 [Code]
 // --- Windows API 직접 호출을 위한 정의 (버전 독립적) ---
 const
@@ -259,6 +244,125 @@ begin
   Result := (GetArch = 'arm64') and (not IsVCRedistInstalled('arm64'));
 end;
 
+// --- 앱 이름 마이그레이션 관련 상수 및 함수 ---
+const
+  OLD_APP_NAME = 'Taskey';
+  NEW_APP_NAME = '${config.name}';
+
+// 이전 Program Files 경로 확인
+function GetOldProgramFilesPath: String;
+var
+  ProgramFilesPath: String;
+begin
+  ProgramFilesPath := ExpandConstant('{autopf}');
+  Result := ProgramFilesPath + '\\' + OLD_APP_NAME;
+end;
+
+// 이전 AppData 경로 확인
+function GetOldAppDataPath: String;
+var
+  AppDataPath: String;
+begin
+  AppDataPath := ExpandConstant('{localappdata}');
+  Result := AppDataPath + '\\' + OLD_APP_NAME;
+end;
+
+// 새 AppData 경로 확인
+function GetNewAppDataPath: String;
+var
+  AppDataPath: String;
+begin
+  AppDataPath := ExpandConstant('{localappdata}');
+  Result := AppDataPath + '\\' + NEW_APP_NAME;
+end;
+
+// AppData 마이그레이션 수행
+procedure MigrateAppData;
+var
+  OldAppDataPath: String;
+  NewAppDataPath: String;
+  FindRec: TFindRec;
+  ResultCode: Integer;
+begin
+  // 앱 이름이 변경된 경우에만 마이그레이션 수행
+  if OLD_APP_NAME = NEW_APP_NAME then
+    exit;
+
+  OldAppDataPath := GetOldAppDataPath;
+  NewAppDataPath := GetNewAppDataPath;
+
+  // 이전 AppData 폴더가 존재하는지 확인
+  if not DirExists(OldAppDataPath) then
+  begin
+    Log('📁 이전 AppData 폴더가 없습니다: ' + OldAppDataPath);
+    exit;
+  end;
+
+  Log('🔄 AppData 마이그레이션 시작: ' + OldAppDataPath + ' -> ' + NewAppDataPath);
+
+  // 새 AppData 폴더가 이미 존재하는 경우
+  if DirExists(NewAppDataPath) then
+  begin
+    Log('⚠️ 새 AppData 폴더가 이미 존재합니다. 기존 데이터를 유지합니다.');
+    exit;
+  end;
+
+  // 새 AppData 폴더 생성
+  if not CreateDir(NewAppDataPath) then
+  begin
+    Log('❌ 새 AppData 폴더 생성 실패: ' + NewAppDataPath);
+    exit;
+  end;
+
+  // xcopy를 사용하여 데이터 복사 (권한 문제 회피)
+  if Exec('xcopy', '"' + OldAppDataPath + '\\*" "' + NewAppDataPath + '\\" /E /I /H /Y', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if ResultCode = 0 then
+      Log('✅ AppData 마이그레이션 완료')
+    else
+      Log('⚠️ AppData 마이그레이션 중 일부 파일 복사 실패 (코드: ' + IntToStr(ResultCode) + ')');
+  end
+  else
+  begin
+    Log('❌ AppData 마이그레이션 실패: xcopy 실행 실패');
+  end;
+end;
+
+// 이전 Program Files 폴더 삭제 (설치 완료 후)
+procedure DeleteOldProgramFilesFolder;
+var
+  OldProgramFilesPath: String;
+  ResultCode: Integer;
+begin
+  // 앱 이름이 변경된 경우에만 삭제 수행
+  if OLD_APP_NAME = NEW_APP_NAME then
+    exit;
+
+  OldProgramFilesPath := GetOldProgramFilesPath;
+
+  // 이전 Program Files 폴더가 존재하는지 확인
+  if not DirExists(OldProgramFilesPath) then
+  begin
+    Log('📁 이전 Program Files 폴더가 없습니다: ' + OldProgramFilesPath);
+    exit;
+  end;
+
+  Log('🗑️ 이전 Program Files 폴더 삭제 시작: ' + OldProgramFilesPath);
+
+  // rmdir를 사용하여 폴더 삭제
+  if Exec('cmd.exe', '/c rmdir /s /q "' + OldProgramFilesPath + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if ResultCode = 0 then
+      Log('✅ 이전 Program Files 폴더 삭제 완료')
+    else
+      Log('⚠️ 이전 Program Files 폴더 삭제 실패 (코드: ' + IntToStr(ResultCode) + ')');
+  end
+  else
+  begin
+    Log('❌ 이전 Program Files 폴더 삭제 실패: rmdir 실행 실패');
+  end;
+end;
+
 // 기존 CurStepChanged 프로시저
 procedure CurStepChanged(CurStep: TSetupStep);
 var
@@ -273,28 +377,24 @@ begin
     else
       Log('✅ Process killed, sleeping for 1 second...');
     Sleep(1000);
+
+    // AppData 마이그레이션 수행 (설치 전)
+    MigrateAppData;
+  end;
+
+  if CurStep = ssPostInstall then begin
+    // 설치 완료 후 이전 Program Files 폴더 삭제
+    DeleteOldProgramFilesFolder;
   end;
 end;
 ''';
-}
+  }
 
   Future<File> build() async {
     CliLogger.info("Generating ISS script...");
-    final script = scriptHeader +
-        _setup() +
-        _installDelete() +
-        _tasks() +
-        _files() +
-        _icons() +
-        _languages() +
-        _run() +
-        _code();
+    final script = scriptHeader + _setup() + _installDelete() + _tasks() + _files() + _icons() + _languages() + _run() + _code();
 
-    final relScriptPath = p.joinAll([
-      ...installerBuildDir,
-      config.type.dirName,
-      "inno-script.iss",
-    ]);
+    final relScriptPath = p.joinAll([...installerBuildDir, config.type.dirName, "inno-script.iss"]);
     final absScriptPath = p.join(Directory.current.path, relScriptPath);
     final scriptFile = File(absScriptPath);
     scriptFile.createSync(recursive: true);
