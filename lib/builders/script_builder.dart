@@ -309,6 +309,7 @@ end;
 function InitializeSetup(): Boolean;
 var
   OldProgramFilesPath: String;
+  NewProgramFilesPath: String;
 begin
   Result := True;
   
@@ -317,6 +318,7 @@ begin
     exit;
   
   OldProgramFilesPath := GetOldProgramFilesPath;
+  NewProgramFilesPath := ExpandConstant('{autopf}') + '\\' + NEW_APP_NAME;
   
   // 이전 Program Files 폴더가 존재하는 경우 로그만 남김
   // 실제 삭제는 설치 완료 후 수행
@@ -324,6 +326,51 @@ begin
   begin
     Log('📁 이전 설치 경로 발견: ' + OldProgramFilesPath);
     Log('ℹ️ 설치 완료 후 이전 폴더가 삭제됩니다.');
+  end;
+  
+  // 새 설치 경로로 강제 설정 (이전 설치 경로 무시)
+  // WizardForm은 InitializeWizard에서만 접근 가능하므로, 
+  // 대신 레지스트리에서 이전 설치 경로를 삭제하여 새 경로를 사용하도록 함
+  RegDeleteValue(HKEY_LOCAL_MACHINE, 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\' + ExpandConstant('{#SetupSetting("AppId")}'), 'InstallLocation');
+end;
+
+// 설치 마법사 초기화 시 설치 경로 강제 설정
+procedure InitializeWizard();
+var
+  NewProgramFilesPath: String;
+begin
+  // 앱 이름이 변경된 경우에만 처리
+  if OLD_APP_NAME = NEW_APP_NAME then
+    exit;
+  
+  // 새 설치 경로로 강제 설정
+  NewProgramFilesPath := ExpandConstant('{autopf}') + '\\' + NEW_APP_NAME;
+  WizardForm.DirEdit.Text := NewProgramFilesPath;
+  Log('🔧 설치 경로를 새 경로로 설정: ' + NewProgramFilesPath);
+end;
+
+// 페이지 변경 시 디렉토리 경로 강제 설정
+procedure CurPageChanged(CurPageID: Integer);
+var
+  NewProgramFilesPath: String;
+  OldProgramFilesPath: String;
+begin
+  // 앱 이름이 변경된 경우에만 처리
+  if OLD_APP_NAME = NEW_APP_NAME then
+    exit;
+  
+  // 디렉토리 선택 페이지인 경우
+  if CurPageID = wpSelectDir then
+  begin
+    NewProgramFilesPath := ExpandConstant('{autopf}') + '\\' + NEW_APP_NAME;
+    OldProgramFilesPath := ExpandConstant('{autopf}') + '\\' + OLD_APP_NAME;
+    
+    // 이전 경로로 설정되어 있으면 새 경로로 변경
+    if (WizardForm.DirEdit.Text = OldProgramFilesPath) or (Pos(OLD_APP_NAME, WizardForm.DirEdit.Text) > 0) then
+    begin
+      WizardForm.DirEdit.Text := NewProgramFilesPath;
+      Log('🔧 디렉토리 페이지에서 설치 경로를 새 경로로 변경: ' + NewProgramFilesPath);
+    end;
   end;
 end;
 
