@@ -80,6 +80,8 @@ Root: "HKCU"; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; Value
 \n''';
   }
 
+  final List<String> _availableVcRedistFiles = [];
+
   String _files() {
     var section = "[Files]\n";
 
@@ -104,11 +106,13 @@ Root: "HKCU"; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; Value
 
     // --- 이 부분을 수정합니다 ---
     final vcRedistFiles = ['VC_redist.x64.exe', 'VC_redist.x86.exe', 'VC_redist.arm64.exe'];
+    _availableVcRedistFiles.clear();
 
     for (final fileName in vcRedistFiles) {
       final filePath = p.join(Directory.current.path, 'dependencies', fileName);
       if (File(filePath).existsSync()) {
         section += 'Source: "$filePath"; DestDir: "{tmp}"; Flags: deleteafterinstall\n';
+        _availableVcRedistFiles.add(fileName);
       } else {
         CliLogger.warning('$fileName not found in "dependencies" folder. Skipping.');
       }
@@ -135,13 +139,29 @@ Name: "{autodesktop}\\${config.name}"; Filename: "{app}\\${config.exeName}"; Tas
   }
 
   String _run() {
-    return '''
-[Run]
-Filename: "{tmp}\\VC_redist.x64.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (x64)..."; Check: VCRedistNeedsInstall_x64
-Filename: "{tmp}\\VC_redist.x86.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (x86)..."; Check: VCRedistNeedsInstall_x86
-Filename: "{tmp}\\VC_redist.arm64.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (arm64)..."; Check: VCRedistNeedsInstall_arm64
-Filename: "{app}\\${config.exeName}"; Description: "{cm:LaunchProgram,{#StringChange('${config.name}', '&', '&&')}}"; Flags: nowait postinstall skipifsilent shellexec runascurrentuser
-\n''';
+    var section = "[Run]\n";
+
+    // 실제로 존재하는 VC_redist 파일만 실행 섹션에 추가
+    if (_availableVcRedistFiles.contains('VC_redist.x64.exe')) {
+      section +=
+          'Filename: "{tmp}\\VC_redist.x64.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (x64)..."; Check: VCRedistNeedsInstall_x64\n';
+    }
+    if (_availableVcRedistFiles.contains('VC_redist.x86.exe')) {
+      section +=
+          'Filename: "{tmp}\\VC_redist.x86.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (x86)..."; Check: VCRedistNeedsInstall_x86\n';
+    }
+    if (_availableVcRedistFiles.contains('VC_redist.arm64.exe')) {
+      section +=
+          'Filename: "{tmp}\\VC_redist.arm64.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "Installing Microsoft VC++ Runtime (arm64)..."; Check: VCRedistNeedsInstall_arm64\n';
+    }
+
+    final exeName = config.exeName;
+    final appName = config.name;
+    section +=
+        'Filename: "{app}\\$exeName"; Description: "{cm:LaunchProgram,{#StringChange(\'$appName\', \'&\', \'&&\')}}"; Flags: nowait postinstall skipifsilent shellexec runascurrentuser\n';
+    section += '\n';
+
+    return section;
   }
 
   String _code() {
@@ -228,19 +248,46 @@ begin
   Result := Success;
 end;
 
-// 각 아키텍처별 최종 체크 함수
+// 각 아키텍처별 최종 체크 함수 (파일 존재 여부를 먼저 확인)
 function VCRedistNeedsInstall_x64: Boolean;
+var
+  FilePath: String;
 begin
+  FilePath := ExpandConstant('{tmp}\\VC_redist.x64.exe');
+  // 파일이 존재하지 않으면 설치하지 않음
+  if not FileExists(FilePath) then
+  begin
+    Result := False;
+    exit;
+  end;
   Result := (GetArch = 'x64') and (not IsVCRedistInstalled('x64'));
 end;
 
 function VCRedistNeedsInstall_x86: Boolean;
+var
+  FilePath: String;
 begin
+  FilePath := ExpandConstant('{tmp}\\VC_redist.x86.exe');
+  // 파일이 존재하지 않으면 설치하지 않음
+  if not FileExists(FilePath) then
+  begin
+    Result := False;
+    exit;
+  end;
   Result := ((GetArch = 'x86') or (GetArch = 'x64')) and (not IsVCRedistInstalled('x86'));
 end;
 
 function VCRedistNeedsInstall_arm64: Boolean;
+var
+  FilePath: String;
 begin
+  FilePath := ExpandConstant('{tmp}\\VC_redist.arm64.exe');
+  // 파일이 존재하지 않으면 설치하지 않음
+  if not FileExists(FilePath) then
+  begin
+    Result := False;
+    exit;
+  end;
   Result := (GetArch = 'arm64') and (not IsVCRedistInstalled('arm64'));
 end;
 
