@@ -258,6 +258,28 @@ begin
   Result := ProgramFilesPath + '\\' + OLD_APP_NAME;
 end;
 
+// 설치 시작 전 초기화 (이전 설치 경로 확인 및 처리)
+function InitializeSetup(): Boolean;
+var
+  OldProgramFilesPath: String;
+begin
+  Result := True;
+  
+  // 앱 이름이 변경된 경우에만 처리
+  if OLD_APP_NAME = NEW_APP_NAME then
+    exit;
+  
+  OldProgramFilesPath := GetOldProgramFilesPath;
+  
+  // 이전 Program Files 폴더가 존재하는 경우 로그만 남김
+  // 실제 삭제는 설치 완료 후 수행
+  if DirExists(OldProgramFilesPath) then
+  begin
+    Log('📁 이전 설치 경로 발견: ' + OldProgramFilesPath);
+    Log('ℹ️ 설치 완료 후 이전 폴더가 삭제됩니다.');
+  end;
+end;
+
 // 이전 AppData 경로 확인
 function GetOldAppDataPath: String;
 var
@@ -281,7 +303,6 @@ procedure MigrateAppData;
 var
   OldAppDataPath: String;
   NewAppDataPath: String;
-  FindRec: TFindRec;
   ResultCode: Integer;
 begin
   // 앱 이름이 변경된 경우에만 마이그레이션 수행
@@ -368,21 +389,37 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
   ExecResult: Boolean;
+  OldExeName: String;
 begin
   if CurStep = ssInstall then begin
-    Log('🔧 Killing running ${config.exeName} during installation...');
+    // 이전 실행 파일 이름도 종료 시도
+    OldExeName := OLD_APP_NAME + '.exe';
+    Log('🔧 Killing running processes during installation...');
+    
+    // 새 실행 파일 종료
     ExecResult := Exec('taskkill.exe', '/F /IM ${config.exeName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    if not ExecResult then
-      Log('❌ Failed to kill process')
+    if ExecResult then
+      Log('✅ ${config.exeName} process killed')
     else
-      Log('✅ Process killed, sleeping for 1 second...');
+      Log('⚠️ ${config.exeName} process not found or already stopped');
+    
+    // 이전 실행 파일 종료 (이름이 다른 경우)
+    if OLD_APP_NAME <> NEW_APP_NAME then
+    begin
+      ExecResult := Exec('taskkill.exe', '/F /IM ' + OldExeName, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      if ExecResult then
+        Log('✅ ' + OldExeName + ' process killed')
+      else
+        Log('⚠️ ' + OldExeName + ' process not found or already stopped');
+    end;
+    
     Sleep(1000);
 
     // AppData 마이그레이션 수행 (설치 전)
     MigrateAppData;
   end;
 
-  if CurStep = ssPostInstall then begin
+  if CurStep = ssDone then begin
     // 설치 완료 후 이전 Program Files 폴더 삭제
     DeleteOldProgramFilesFolder;
   end;
